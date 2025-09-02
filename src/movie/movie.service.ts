@@ -1,10 +1,11 @@
 import { Injectable } from '@nestjs/common';
-import { CreateMovieDto } from './dto/create-movie.dto';
+import { CreateMovieDto, SearchMovieDto } from './dto/create-movie.dto';
 import { UpdateMovieDto } from './dto/update-movie.dto';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Movie } from './entities/movie.entity';
 import { Repository } from 'typeorm';
 import { Transactional } from 'typeorm-transactional';
+import { applyExactFilter } from 'src/common/helpers/filters';
 
 @Injectable()
 export class MovieService {
@@ -21,7 +22,7 @@ export class MovieService {
     return movie;
   }
 
-  findAll() {
+  async search(query: SearchMovieDto) {
     return `This action returns all movie`;
   }
 
@@ -46,5 +47,19 @@ export class MovieService {
     entity.director = body.director;
     entity.duration = body.duration;
     return entity;
+  }
+
+    private createQueryBuilder(query: SearchMovieDto) {
+    const tableName = 'movie';
+    return this.repository
+      .createQueryBuilder(tableName)
+      .where((qb) => {
+        if (query.title) {
+          applyExactFilter(qb, query.title, 'title', tableName);
+        }
+        if (query.id) {
+          applyExactFilter(qb, query.id, 'id', tableName);
+        }
+      });
   }
 }
