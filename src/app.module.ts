@@ -7,6 +7,7 @@ import { TypeOrmModule } from '@nestjs/typeorm';
 import { getTypeormConfig } from './common/config/typeorm.config';
 import { addTransactionalDataSource } from 'typeorm-transactional';
 import { DataSource } from 'typeorm';
+import { MovieModule } from './movie/movie.module';
 
 @Module({
   imports: [
@@ -25,7 +26,8 @@ import { DataSource } from 'typeorm';
         }
         return addTransactionalDataSource(new DataSource(options));
       }
-    })
+    }),
+    MovieModule
   ],
   controllers: [AppController],
   providers: [AppService],
