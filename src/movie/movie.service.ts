@@ -1,15 +1,14 @@
-import { Injectable } from '@nestjs/common';
+import { Injectable, InternalServerErrorException, NotFoundException } from '@nestjs/common';
 import { CreateMovieDto, SearchMovieDto } from './dto/create-movie.dto';
 import { UpdateMovieDto } from './dto/update-movie.dto';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Movie } from './entities/movie.entity';
 import { Repository } from 'typeorm';
 import { Transactional } from 'typeorm-transactional';
-import { applyExactFilter } from 'src/common/helpers/filters';
+import { applyExactFilter } from 'common/helpers/filters';
 
 @Injectable()
 export class MovieService {
-
   constructor(
     @InjectRepository(Movie)
     private readonly repository: Repository<Movie>,
@@ -18,24 +17,49 @@ export class MovieService {
   
   @Transactional()
   async create(body: CreateMovieDto): Promise<Movie> {
-    const movie = await this.repository.save(this.buildEntity(body));
-    return movie;
+    try {
+      const movie = await this.repository.save(this.buildEntity(body));
+      return movie;
+    } catch (error) {
+      throw new InternalServerErrorException(
+        'Error creating movie', error
+      );
+    }
   }
 
   async search(query: SearchMovieDto) {
-    return `This action returns all movie`;
+    try {
+      const queryBuilder = this.createQueryBuilder(query);
+      const response = await queryBuilder.getMany();
+      return response;
+    } catch (error) {
+      throw new InternalServerErrorException(
+        'Error getting all movies', error
+      );
+    }
   }
 
-  findOne(id: number) {
-    return `This action returns a #${id} movie`;
+  async getById(id: number): Promise<Movie> {
+    const existing = await this.search({id: id});
+    if (!existing.length) {
+      throw new NotFoundException('movie not found')
+    }
+    return existing[0];
   }
 
-  update(id: number, updateMovieDto: UpdateMovieDto) {
-    return `This action updates a #${id} movie`;
+  @Transactional()
+  async update(id: number, body: UpdateMovieDto): Promise<Movie> {
+    const movie = await this.getById(id);
+    const updatedData = this.repository.merge(movie, body);
+    return this.repository.save(updatedData);
   }
 
-  remove(id: number) {
-    return `This action removes a #${id} movie`;
+  @Transactional()
+  async remove(id: number) {
+    const existing = await this.getById(id);
+    await this.repository.softRemove(existing);
+
+    
   }
 
   private buildEntity(body: CreateMovieDto): Movie{
@@ -59,6 +83,15 @@ export class MovieService {
         }
         if (query.id) {
           applyExactFilter(qb, query.id, 'id', tableName);
+        }
+        if (query.status) {
+          applyExactFilter(qb, query.status, 'status', tableName);
+        }
+        if (query.isActive) {
+          applyExactFilter(qb, query.isActive, 'isActive', tableName);
+        }
+        if (query.director) {
+          applyExactFilter(qb, query.director, 'director', tableName);
         }
       });
   }
